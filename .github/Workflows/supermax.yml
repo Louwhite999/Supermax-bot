@@ -1,0 +1,21 @@
+name: Run Supermax Bot
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 13:00 * * *'
+    - cron: '0 17:00 * * *'
+    - cron: '0 22:00 * * *'
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - run: python bot.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
