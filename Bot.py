@@ -10,7 +10,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "LOUIS SUPERMAX LIVE - OK - WITH BRAIN"
+    return "LOUIS SUPERMAX CLEAN - LIVE"
 
 sent_bets = set()
 last_warning = 0
@@ -18,14 +18,28 @@ last_warning = 0
 ADJ_FILE = "supermax_learn.json"
 RES_FILE = "supermax_results.csv"
 
+# ONLY REAL SPORTS - no KBO, no KSA
+ALLOWED_SPORTS = [
+    "baseball_mlb",
+    "americanfootball_nfl",
+    "basketball_nba",
+    "americanfootball_ncaaf",
+    "basketball_ncaab"
+]
+
 def get_adj(t):
     if not os.path.exists(ADJ_FILE): return 0
     try: d=json.load(open(ADJ_FILE))
     except: return 0
     now=datetime.now()
+    changed=False
     for k in list(d.keys()):
         try:
-            if datetime.fromisoformat(d[k]['until']) < now: del d[k]
+            if datetime.fromisoformat(d[k]['until']) < now:
+                del d[k]; changed=True
+        except: pass
+    if changed:
+        try: json.dump(d, open(ADJ_FILE,'w'))
         except: pass
     return d.get(t,{}).get('adj',0)
 
@@ -71,12 +85,21 @@ def send_msg(text):
     except Exception as e:
         print(f"Send error: {e}")
 
+def calc_score(game_data):
+    # ===== PUT YOUR REAL 9.0 FORMULA HERE =====
+    # For now: simple filter - if you had logic before, paste it here
+    # This is where your edge calc goes
+    # Example: return 9.2 if you like the game else 8.0
+    # Keeping 9.1 for now so it still fires - CHANGE THIS TO YOUR FORMULA
+    return 9.1
+
 def bot_loop():
     global last_warning
-    print("Bot started WITH BRAIN")
+    print("Bot started CLEAN")
     last_update_id=0
     while True:
         try:
+            # Handle W/L
             try:
                 if TOKEN:
                     url=f"https://api.telegram.org/bot{TOKEN}/getUpdates?offset={last_update_id+1}&timeout=5"
@@ -97,30 +120,38 @@ def bot_loop():
                     send_msg("LOUIS - ODDS_API_KEY missing!")
                     last_warning=time.time()
             else:
-                url=f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?apiKey={ODDS}&regions=us&markets=h2h,spreads&oddsFormat=american"
-                r=requests.get(url,timeout=20)
-                data=r.json()
-                if isinstance(data,list):
-                    for g in data[:5]:
-                        home=g.get("home_team"); away=g.get("away_team")
-                        game_id=f"{away}@{home}"
-                        if game_id not in sent_bets:
-                            try:
+                for sport in ALLOWED_SPORTS:
+                    try:
+                        url=f"https://api.the-odds-api.com/v4/sports/{sport}/odds/?apiKey={ODDS}&regions=us&markets=h2h,spreads&oddsFormat=american"
+                        r=requests.get(url,timeout=20)
+                        data=r.json()
+                        if not isinstance(data,list):
+                            continue
+                        for g in data[:10]:
+                            home=g.get("home_team"); away=g.get("away_team")
+                            game_id=f"{away}@{home} ({sport})"
+                            if game_id in sent_bets:
+                                continue
+                            base_score=calc_score(g)
+                            # Only send real 9.0s
+                            if base_score < 9.0:
+                                continue
+                            game_type="road_dog" # change to your fav/dog/home logic
+                            adj=get_adj(game_type)
+                            final=base_score+adj
+                            if final>=9.0:
                                 book=g.get("bookmakers",[])[0] if g.get("bookmakers") else {}
                                 market=book.get("markets",[])[0] if book.get("markets") else {}
                                 outcome=market.get("outcomes",[])[0] if market.get("outcomes") else {}
-                                base_score=9.1
-                                game_type="road_dog"
-                                adj=get_adj(game_type)
-                                final=base_score+adj
-                                if final>=9.0:
-                                    send_msg(f"SUPERMAX {final:.1f} (base {base_score:.1f} {adj:+.1f}) {game_id} {outcome.get('name','')}")
-                                    sent_bets.add(game_id)
-                                    log_pending(game_id,game_type,base_score,adj)
-                            except: pass
+                                send_msg(f"SUPERMAX {final:.1f} (base {base_score:.1f} {adj:+.1f}) {game_id} {outcome.get('name','')}")
+                                sent_bets.add(game_id)
+                                log_pending(game_id,game_type,base_score,adj)
+                    except Exception as e:
+                        print(f"sport {sport} err {e}")
+                        continue
         except Exception as e:
             print(f"Loop Error: {e}")
-        time.sleep(120)
+        time.sleep(180)
 
 threading.Thread(target=bot_loop,daemon=True).start()
 
