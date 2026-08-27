@@ -153,7 +153,7 @@ def bot_loop():
                         if game_id in sent_bets: continue
                         base=calc_vegas_score(g)
                 # --- ELITE BRAIN BOOST ---
-                try:
+ try:
                     brain = load_brain()
                     rep = brain_report(g, brain)
                     b_score = rep.get('score', base) if isinstance(rep, dict) else base
