@@ -149,7 +149,7 @@ def bot_loop():
                     r=requests.get(url,timeout=20).json()
                     if not isinstance(r,list): continue
                     for g in r[:12]:
-                   game_id=f"{g.get('away_team')}-{g.get('home_team')}"
+                        game_id=f"{g.get('away_team')}-{g.get('home_team')}"
         if game_id in sent_bets:
             continue
         base=calc_vegas_score(g)
