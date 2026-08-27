@@ -149,25 +149,33 @@ def bot_loop():
                     r=requests.get(url,timeout=20).json()
                     if not isinstance(r,list): continue
                     for g in r[:12]:
-                        game_id=f"{g.get('away_team')}@{g.get('home_team')} ({sport})"
-                        if game_id in sent_bets: continue
-                        base=calc_vegas_score(g)
-                # --- ELITE BRAIN BOOST ---
- try:
-                    brain = load_brain()
-                    rep = brain_report(g, brain)
-                    b_score = rep.get('score', base) if isinstance(rep, dict) else base
-                    if b_score > base:
-                        base = b_score
-                except:
-                    rep = ""
-                    b_score = base
-                try:
-                    props = get_nfl_props(g)
-                    ml = find_moneyline_value(g)
-                except:
-                    props = None
-                    ml = None                                        
+                   game_id=f"{g.get('away_team')}-{g.get('home_team')}"
+        if game_id in sent_bets:
+            continue
+        base=calc_vegas_score(g)
+        # --- ELITE BRAIN BOOST ---
+        try:
+            brain = load_brain()
+            rep = brain_report(g, brain)
+            b_score = rep.get('score', base)
+            if b_score > base:
+                base = b_score
+        except:
+            rep = ""
+            b_score = base
+        try:
+            props = get_nfl_props(g)
+            ml = find_moneyline_value(g)
+        except:
+            props = None
+            ml = None             
+                        
+                        
+
+                    ml = None           
+                
+                    
+                                                           
                 
                 
                     
