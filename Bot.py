@@ -92,28 +92,43 @@ def vegas_score(team, lines, is_home, sport):
     best = max(lines, key=lambda x: x['price'])
     avg_price = sum(l['price'] for l in lines)/len(lines)
     best_price = best['price']
+
+    # Only dogs
     if best_price < 130 or best_price > 350:
         return 0, {}
+
     score = 5.0
     reasons = []
+
+    # 1. Line value vs average (max 2 pts)
     edge_prob = american_to_prob(avg_price) - american_to_prob(best_price)
     if edge_prob > 0.02:
         add = min(2.0, edge_prob*50)
         score += add
         reasons.append(f"Edge {edge_prob*100:.1f}% +{add:.1f}")
+
+    # 2. Sharp book on dog (max 1.5 pts)
     sharp_on_dog = any(l['key'] in SHARP_BOOKS and l['price']>=130 for l in lines)
     if sharp_on_dog:
         score += 1.5
         reasons.append("Sharp book +1.5")
+
+    # 3. Home dog boost (max 1 pt) - Vegas classic
     if is_home and best_price>=140:
         score += 1.0
         reasons.append("Home dog +1.0")
+
+    # 4. Best line vs market - Pinnacle/Circa have best price (max 1 pt)
     if best['key'] in SHARP_BOOKS:
         score += 1.0
         reasons.append(f"Best @ {best['book']} +1.0")
+
+    # 5. NFL boost - NFL dogs more valuable late
     if "football" in sport:
         score += 0.5
         reasons.append("NFL +0.5")
+
+    # Cap at 10
     score = min(10, score)
     return score, {"best": best, "avg": avg_price, "reasons": reasons, "edge": edge_prob}
 
@@ -121,6 +136,7 @@ def poll_loop():
     global last_update_id, daily_sent, last_reset_day
     print("VEGAS 9.0 LOOP STARTED")
     send_msg("🚀 *SUPERMAX VEGAS 9.0+ ONLINE*\nWeekend Mode: Only 9.0+ picks\nScanning NFL/NCAAF/MLB/WNBA\nUse /status /bankroll /test")
+
     while True:
         try:
             if datetime.now().day != last_reset_day:
@@ -128,6 +144,7 @@ def poll_loop():
                 last_reset_day=datetime.now().day
                 sent_bets.clear()
                 print("Daily reset")
+
             if TOKEN:
                 try:
                     url=f"https://api.telegram.org/bot{TOKEN}/getUpdates?offset={last_update_id+1}&timeout=10"
@@ -142,6 +159,7 @@ def poll_loop():
                                     send_msg(res)
                 except Exception as e:
                     print(f"tg error {e}")
+
             if not ODDS:
                 time.sleep(60)
                 continue
@@ -149,6 +167,7 @@ def poll_loop():
                 print("Daily limit")
                 time.sleep(120)
                 continue
+
             for sport in ["americanfootball_nfl","americanfootball_ncaaf","baseball_mlb","basketball_wnba"]:
                 try:
                     url=f"https://api.the-odds-api.com/v4/sports/{sport}/odds/?apiKey={ODDS}&regions=us&markets=h2h&oddsFormat=american"
@@ -158,6 +177,7 @@ def poll_loop():
                     data=r.json()
                     if not isinstance(data,list):
                         continue
+
                     for g in data:
                         try:
                             home=g.get('home_team','')
@@ -170,12 +190,16 @@ def poll_loop():
                             bms=g.get('bookmakers',[])
                             if len(bms)<3:
                                 continue
+
+                            # Check both teams
                             for team in [away, home]:
                                 is_home = (team==home)
                                 lines=get_lines(bms, team)
                                 if len(lines)<3:
                                     continue
                                 score, info = vegas_score(team, lines, is_home, sport)
+                                
+                                # VEGAS 9.0+ FILTER - THE MONEY FILTER
                                 if score >= 9.0:
                                     if game_key in sent_bets:
                                         continue
@@ -183,8 +207,10 @@ def poll_loop():
                                     avg=info['avg']
                                     reasons=info['reasons']
                                     edge=info['edge']
+
                                     emoji="🏈" if "football" in sport else "⚾️" if "baseball" in sport else "🏀"
                                     league="NFL" if sport=="americanfootball_nfl" else "NCAAF" if "ncaaf" in sport else "MLB" if "mlb" in sport else "WNBA"
+
                                     msg=(
                                         f"{emoji} *{league} VEGAS 9.0+ PICK*\n"
                                         f"*{away} @ {home}*\n"
