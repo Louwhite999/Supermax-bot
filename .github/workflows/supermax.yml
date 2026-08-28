@@ -1,11 +1,9 @@
 name: Run Supermax Bot
 on:
-  push:
-  workflow_dispatch:
   schedule:
-    - cron: '0 13 * * *'
-    - cron: '0 17 * * *'
-    - cron: '0 22 * * *'
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
 jobs:
   run-bot:
     runs-on: ubuntu-latest
@@ -14,8 +12,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install -r requirements.txt
-      - run: python bot.py
+      - name: Install deps
+        run: pip install -r requirements.txt || pip install requests python-telegram-bot
+      - name: Run bot
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          if [ -f Bot.py ]; then python Bot.py; elif [ -f bot.py ]; then python bot.py; else ls -la && echo "No bot file found"; exit 1; fi
