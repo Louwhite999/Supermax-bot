@@ -1,4 +1,4 @@
-# LOUIS SUPERMAX - VEGAS 10.5 ULTRA - 4PM + 6PM CT LOCKS
+# LOUIS SUPERMAX - VEGAS 10.5 ULTRA - 12pm + 4PM + 6PM CT Locks
 import os, requests, time, threading
 from flask import Flask
 from datetime import datetime, timezone
@@ -17,6 +17,7 @@ daily_sent = 0
 last_update_id = 0
 todays_ultra_pool = []
 last_reset_day = datetime.now(timezone.utc).day
+parlay_12pm_sent= False
 parlay_4pm_sent = False
 parlay_6pm_sent = False
 
