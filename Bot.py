@@ -110,7 +110,7 @@ def handle_wl(txt):
     if "/reset" in low:
         todays_ultra_pool.clear(); sent_bets.clear()
         parlay_4pm_sent=False; parlay_6pm_sent=False; parlay_12pm_sent=False
-        return "♻️ Reset - pools + 4PM + 6PM flags cleared"
+        return "♻️ Reset - pools 12pm + 4PM + 6PM flags cleared"
     return None
 
 def is_window(hours):
