@@ -15,13 +15,10 @@ def home():
 sent_bets = set()
 daily_sent = 0
 last_reset_day = None
+parlay_12pm_sent = False
 parlay_4pm_sent = False
 parlay_6pm_sent = False
-
-
-def send_msg(text):
-    if not TOKEN or not CHAT:
-        return
+record = {"wins": 0, "losses": 0}
     try:
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         requests.post(url, json={"chat_id": CHAT, "text": text}, timeout=10)
