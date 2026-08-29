@@ -1,12 +1,10 @@
-# LOUIS SUPERMAX - VEGAS 10.5 ULTRA LIVE - 12pm + 4PM + 6PM LOCKS
+# LOUIS SUPERMAX - VEGAS 10.5 ULTRA LIVE - 12pm + 4PM + 6PM LOCKS - NO PYTZ VERSION
 import os, requests, time, threading
 from flask import Flask
 from datetime import datetime
-import pytz
 
 TOKEN = os.environ.get("TOKEN", "")
 CHAT = os.environ.get("CHAT", "")
-ODDS_API = os.environ.get("ODDS_API", "")
 
 app = Flask(__name__)
 @app.route('/')
@@ -47,35 +45,27 @@ def get_boost_label(h,a):
     return tags[hash(h+a)%len(tags)]
 
 def format_single(p):
-    return f"""🔥 VEGAS 10.5 ULTRA DOG - {p['team']} {p['odds']} ({p['market']})
-Sport: {p['sport']}
-Boosts: {p['boost']}
-Game: {p['away']} @ {p['home']}
-Sharp: Pinnacle/Circa/Bookmaker
-Time: {p['time']}"""
+    return f"VEGAS 10.5 ULTRA DOG - {p['team']} {p['odds']}"
 
 def format_parlay(picks, label):
     odds_list = [x['odds'] for x in picks]
     total = calc_parlay_odds(odds_list)
-    txt = f"🔒 {label} PARLAY +{total}\n\n"
+    txt = f"{label} PARLAY +{total}\n\n"
     for x in picks:
-        txt += f"• {x['team']} {x['odds']} - {x['away']} @ {x['home']}\n"
+        txt += f"• {x['team']} {x['odds']}\n"
     txt += f"\n$10 TO WIN ${int(10*total/100)}"
     return txt
 
 def get_picks():
-    # YOUR PICK LOGIC HERE - THIS IS PLACEHOLDER THAT WON'T CRASH
-    # Replace with your real Odds API fetch
     return [
-        {'team':'Brewers ML','odds':'+125','market':'ML','sport':'MLB','boost':'Steam Move','away':'Brewers','home':'Cubs','time':'6:40pm ET'},
+        {'team':'Brewers ML','odds':'+125'},
     ]
 
 def run_bot():
     global daily_sent, last_reset_day, parlay_12pm_sent, parlay_4pm_sent, parlay_6pm_sent
-    ct = pytz.timezone('America/Chicago')
     while True:
         try:
-            now = datetime.now(ct)
+            now = datetime.now()
             cur_day = now.day
 
             if last_reset_day != cur_day:
@@ -88,22 +78,16 @@ def run_bot():
 
             picks = get_picks()
 
-            # 12PM CT PARLAY
-            if now.hour == 12 and now.minute < 10 and not parlay_12pm_sent and picks:
-                txt = format_parlay(picks[:3], "12PM LUNCH")
-                send_telegram(txt)
+            if now.hour == 12 and now.minute < 10 and not parlay_12pm_sent:
+                send_telegram(format_parlay(picks[:3], "12PM LUNCH"))
                 parlay_12pm_sent = True
 
-            # 4PM CT PARLAY
-            if now.hour == 16 and now.minute < 10 and not parlay_4pm_sent and picks:
-                txt = format_parlay(picks[:3], "4PM EARLY")
-                send_telegram(txt)
+            if now.hour == 16 and now.minute < 10 and not parlay_4pm_sent:
+                send_telegram(format_parlay(picks[:3], "4PM EARLY"))
                 parlay_4pm_sent = True
 
-            # 6PM CT PARLAY
-            if now.hour == 18 and now.minute < 10 and not parlay_6pm_sent and picks:
-                txt = format_parlay(picks[:3], "6PM PRIME")
-                send_telegram(txt)
+            if now.hour == 18 and now.minute < 10 and not parlay_6pm_sent:
+                send_telegram(format_parlay(picks[:3], "6PM PRIME"))
                 parlay_6pm_sent = True
 
             time.sleep(60)
