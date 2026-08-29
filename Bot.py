@@ -118,7 +118,7 @@ def is_window(hours):
     return now.hour in hours and 0 <= now.minute <= 15
 
 def scanner_loop():
-    global daily_sent, last_reset_day, sent_bets, todays_ultra_pool, last_update_id, parlay_4pm_sent, parlay_6pm_sent
+    global daily_sent, last_reset_day, sent_bets, todays_ultra_pool, last_update_id, parlay_4pm_sent, parlay_6pm_sent,parlay_12pm_sent
     print("SUPERMAX 4PM+6PM started")
     while True:
         try:
