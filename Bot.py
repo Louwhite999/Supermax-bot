@@ -109,7 +109,7 @@ def handle_wl(txt):
         return f"❌ Loss {record['wins']}-{record['losses']}"
     if "/reset" in low:
         todays_ultra_pool.clear(); sent_bets.clear()
-        parlay_4pm_sent=False; parlay_6pm_sent=False
+        parlay_4pm_sent=False; parlay_6pm_sent=False; parlay_12pm_sent=False
         return "♻️ Reset - pools + 4PM + 6PM flags cleared"
     return None
 
