@@ -139,10 +139,16 @@ def scanner_loop():
             cur_day=datetime.now(timezone.utc).day
             if cur_day!=last_reset_day:
                 daily_sent=0; sent_bets.clear(); todays_ultra_pool.clear()
-                parlay_4pm_sent=False; parlay_6pm_sent=False; parlay_12pm_sent=False
+                        daily_sent=0; sent_bets.clear(); todays_ultra_pool.clear(); parlay_4pm_sent=False; parlay_6pm_sent=False; parlay_12pm_sent=False
                 last_reset_day=cur_day
 
-            if not parlay_4pm_sent and is_window([21,22]):
+                    if not parlay_12pm_sent and is_window([17,18]):
+            if len(todays_ultra_pool)>=3:
+                txt=build_parlay_text("🔒 VEGAS 10.5 ULTRA 12PM CT LOCK PARLAY")
+                if txt:
+                    send_msg(txt); parlay_12pm_sent=True
+
+        if not parlay_4pm_sent and is_window([21,22]):
                 if len(todays_ultra_pool)>=3:
                     txt=build_parlay_text("🔒 VEGAS 10.5 ULTRA 4PM CT LOCK PARLAY")
                     if txt:
