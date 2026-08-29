@@ -1,4 +1,4 @@
-# LOUIS SUPERMAX - VEGAS 10.5 ULTRA - 12pm + 4PM + 6PM CT Locks
+# LOUIS SUPERMAX - VEGAS 10.5 ULTRA - 12pm + 4PM + 6PM CT Locks fixed
 import os, requests, time, threading
 from flask import Flask
 from datetime import datetime, timezone
