@@ -1,101 +1,91 @@
-# LOUIS SUPERMAX - VEGAS 10.5 ULTRA LIVE - 12pm + 4PM + 6PM LOCKS - NO PYTZ VERSION
+# LOUIS SUPERMAX VEGAS 10.5 ULTRA REAL SCANNER - FINAL NO PYTZ
 import os, requests, time, threading
 from flask import Flask
 from datetime import datetime
 
-TOKEN = os.environ.get("TOKEN", "")
-CHAT = os.environ.get("CHAT", "")
+TOKEN = os.environ.get("TOKEN","")
+CHAT = os.environ.get("CHAT","")
+ODDS_API = os.environ.get("ODDS_API","")
+BOOKMAKERS = "fanduel,draftkings,pinnacle"
+SPORTS = ["americanfootball_nfl","americanfootball_ncaaf","baseball_mlb","basketball_wnba"]
 
 app = Flask(__name__)
 @app.route('/')
-def home():
-    return "LOUIS SUPERMAX VEGAS 10.5 ULTRA LIVE - 12pm + 4PM + 6PM LOCKS + $10"
+def home(): return "LOUIS SUPERMAX 10.5 ULTRA LIVE"
 
-sent_bets = set()
-daily_sent = 0
-last_reset_day = None
-parlay_12pm_sent = False
-parlay_4pm_sent = False
-parlay_6pm_sent = False
-record = {"wins": 0, "losses": 0}
+sent = set()
+last_id = 0
 
-def send_telegram(text):
-    try:
-        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-        requests.post(url, json={"chat_id": CHAT, "text": text}, timeout=10)
-    except Exception as e:
-        print(f"send error {e}")
+def tg_send(t):
+    try: requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id":CHAT,"text":t}, timeout=15)
+    except: pass
 
-def calc_parlay_odds(list_odds):
-    dec = 1.0
-    for o in list_odds:
+def get_dogs():
+    dogs=[]
+    if not ODDS_API: return dogs
+    for sport in SPORTS:
         try:
-            v = str(o).replace('+','').replace('−','-').replace('–','-')
-            iv = int(v)
-            if iv > 0:
-                dec *= (iv/100 + 1)
-            else:
-                dec *= (100/abs(iv) + 1)
-        except:
-            continue
-    return int((dec-1)*100)
+            url=f"https://api.the-odds-api.com/v4/sports/{sport}/odds/?apiKey={ODDS_API}&regions=us&markets=h2h&oddsFormat=american&bookmakers={BOOKMAKERS}"
+            r=requests.get(url,timeout=15).json()
+            for g in r[:20]:
+                home=g.get('home_team',''); away=g.get('away_team','')
+                for b in g.get('bookmakers',[]):
+                    for m in b.get('markets',[]):
+                        for o in m.get('outcomes',[]):
+                            price=o.get('price',0); team=o.get('name','')
+                            if 130 <= price <= 350:
+                                dogs.append({"team":team,"odds":f"+{price}","home":home,"away":away,"sport":sport,"away_team":away,"home_team":home,"time":g.get('commence_time','')[:16]})
+        except: continue
+    return dogs[:10]
 
-def get_boost_label(h,a):
-    tags=["Steam Move","Travel Spot","Div Rev","Sharp Money"]
-    return tags[hash(h+a)%len(tags)]
-
-def format_single(p):
-    return f"VEGAS 10.5 ULTRA DOG - {p['team']} {p['odds']}"
-
-def format_parlay(picks, label):
-    odds_list = [x['odds'] for x in picks]
-    total = calc_parlay_odds(odds_list)
-    txt = f"{label} PARLAY +{total}\n\n"
-    for x in picks:
-        txt += f"• {x['team']} {x['odds']}\n"
-    txt += f"\n$10 TO WIN ${int(10*total/100)}"
+def format_parlay(picks,label):
+    if len(picks)<3: return f"TEST PARLAY - Only {len(picks)} ULTRA dogs, need 3. 4PM & 6PM locks silent if not enough."
+    total=1.0
+    txt=f"LOCK {label} PARLAY\n\n"
+    for p in picks[:3]:
+        txt+=f"• {p['team']} {p['odds']}\n"
+        try: total*=(int(p['odds'].replace('+',''))/100+1)
+        except: pass
+    txt+=f"\n$10 TO WIN ${int((total-1)*10)}"
     return txt
 
-def get_picks():
-    return [
-        {'team':'Brewers ML','odds':'+125'},
-    ]
-
-def run_bot():
-    global daily_sent, last_reset_day, parlay_12pm_sent, parlay_4pm_sent, parlay_6pm_sent
+def poll_commands():
+    global last_id
     while True:
         try:
-            now = datetime.now()
-            cur_day = now.day
+            r=requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates?offset={last_id+1}&timeout=20",timeout=25).json()
+            for u in r.get('result',[]):
+                last_id=u['update_id']
+                text=u.get('message',{}).get('text','')
+                if '/testparlay' in text:
+                    d=get_dogs(); tg_send(format_parlay(d,"12PM TEST"))
+                elif '/test' in text:
+                    d=get_dogs()
+                    if not d: tg_send("TEST - No ULTRA dogs yet. Scanner 60s. Check ODDS_API key.")
+                    else: tg_send(f"VEGAS 10.5 ULTRA TEST - Found {len(d)} dogs\n{format_parlay(d,'TEST')}")
+        except: time.sleep(5)
+        time.sleep(2)
 
-            if last_reset_day != cur_day:
-                daily_sent = 0
-                sent_bets.clear()
-                last_reset_day = cur_day
-                parlay_12pm_sent = False
-                parlay_4pm_sent = False
-                parlay_6pm_sent = False
+def scanner_loop():
+    daily={}
+    while True:
+        try:
+            dogs=get_dogs(); now=datetime.now()
+            for p in dogs:
+                key=p['team']+p['away']+p['home']
+                if key not in sent:
+                    tg_send(f"ULTRA DOG - {p['team']} {p['odds']} - {p['away']} @ {p['home']}")
+                    sent.add(key)
+            if now.hour in [13,17,19] and now.minute<10:
+                k=f"parlay_{now.hour}_{now.day}"
+                if k not in daily and len(dogs)>=3:
+                    label={13:"12PM LUNCH",17:"4PM EARLY",19:"6PM PRIME"}[now.hour]
+                    tg_send(format_parlay(dogs,label)); daily[k]=True
+        except Exception as e: print(e)
+        time.sleep(60)
 
-            picks = get_picks()
+threading.Thread(target=poll_commands,daemon=True).start()
+threading.Thread(target=scanner_loop,daemon=True).start()
 
-            if now.hour == 12 and now.minute < 10 and not parlay_12pm_sent:
-                send_telegram(format_parlay(picks[:3], "12PM LUNCH"))
-                parlay_12pm_sent = True
-
-            if now.hour == 16 and now.minute < 10 and not parlay_4pm_sent:
-                send_telegram(format_parlay(picks[:3], "4PM EARLY"))
-                parlay_4pm_sent = True
-
-            if now.hour == 18 and now.minute < 10 and not parlay_6pm_sent:
-                send_telegram(format_parlay(picks[:3], "6PM PRIME"))
-                parlay_6pm_sent = True
-
-            time.sleep(60)
-        except Exception as e:
-            print(f"loop error {e}")
-            time.sleep(60)
-
-threading.Thread(target=run_bot, daemon=True).start()
-
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=10000)
+if __name__=="__main__":
+    app.run(host='0.0.0.0',port=10000)
