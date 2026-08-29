@@ -10,9 +10,9 @@ ODDS = os.getenv("ODDS_API_KEY")
 app = Flask(__name__)
 @app.route('/')
 def home():
-    return "LOUIS SUPERMAX VEGAS 10.5 ULTRA LIVE - 4PM + 6PM LOCKS + $10"
+    return "LOUIS SUPERMAX VEGAS 10.5 ULTRA LIVE - 12pm +4PM + 6PM LOCKS + $10"
 
-sent_bets = set()
+sent_bets = set(
 daily_sent = 0
 last_update_id = 0
 todays_ultra_pool = []
