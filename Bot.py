@@ -138,7 +138,7 @@ def scanner_loop():
 
             cur_day=datetime.now(timezone.utc).day
             if cur_day!=last_reset_day:
-                daily_sent=0; sent_bets.clear(); todays_ultra_pool.clear()
+                
                         daily_sent=0; sent_bets.clear(); todays_ultra_pool.clear(); parlay_4pm_sent=False; parlay_6pm_sent=False; parlay_12pm_sent=False
                 last_reset_day=cur_day
 
