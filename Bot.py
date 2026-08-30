@@ -103,7 +103,7 @@ def poll():
                 last_id=u['update_id']
                 txt=u.get('message',{}).get('text','').lower()
                 print(f"MSG: {txt}")
-                if 'test' in txt:
+                if 'test' in txt.lower() or 'parlay' in txt.lower() or 'start' in txt.lower() or 'sent' in txt.lower():
                     tg_send(format_parlay(get_elite_picks(),"TEST"))
         except Exception as e:
             print(f"POLL ERR {e}")
