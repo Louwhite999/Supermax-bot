@@ -9,7 +9,13 @@ ODDS_API = os.environ.get("ODDS_API","") or os.environ.get("ODDS_API_KEY","")
 
 app = Flask(__name__)
 last_id = 0
-sent_today = set()
+import json
+SENT_FILE = "/tmp/sent_today.json"
+try:
+    with open(SENT_FILE) as f:
+        sent_today = set(json.load(f))
+except:
+    sent_today = set()
 
 def tg_send(t):
     try:
