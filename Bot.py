@@ -129,7 +129,9 @@ def scheduler():
                 key=f"{now.date()}_{now.hour}"
                 if key not in sent_today:
                     tg_send(format_parlay(get_elite_picks(),label))
-                    sent_today.add(key)
+                  sent_today.add(key)      
+                                        with open(SENT_FILE, "w") as f:
+                    json.dump(list(sent_today), f)
             time.sleep(55)
         except Exception as e:
             print(f"SCHED ERR {e}")
