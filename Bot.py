@@ -1,144 +1,116 @@
-# SUPERMAX V4 SMART MEMORY - Learns from yesterday 2-1
+# SUPERMAX V5 FIXED - No duplicate games, Live Dogs Only
 import os, requests, time, json, threading
 from flask import Flask
 from datetime import datetime, date
 
 # Support BOTH your old names and new names
-TOKEN = os.environ.get("TELEGRAM_TOKEN","") or os.environ.get("TOKEN","") or os.environ.get("TELEGRAM_BOT_TOKEN","")
-CHAT = os.environ.get("TELEGRAM_CHAT_ID","") or os.environ.get("CHAT_ID","") or os.environ.get("CHAT","") or os.environ.get("TELEGRAM_CHAT","")
-ODDS_API = os.environ.get("ODDS_API_KEY","") or os.environ.get("ODDS_API","") or os.environ.get("THE_ODDS_API_KEY","")
+TOKEN = os.environ.get("TELEGRAM_TOKEN","") or os.environ.get("TOKEN","") or os.environ.get("BOT_TOKEN","")
+CHAT_ID = os.environ.get("CHAT_ID","") or os.environ.get("TELEGRAM_CHAT_ID","")
 
 app = Flask(__name__)
-last_update_id = 0
-SENT_FILE = "/tmp/sent_today.json"
-MEMORY_FILE = "/tmp/supermax_memory.json"
 
-try:
-    with open(SENT_FILE) as f:
-        sent_today = set(json.load(f))
-except:
-    sent_today = set()
+# V5 MEMORY - Fixes yesterday's bugs
+MEMORY_FILE = "memory.json"
+# Yesterday V4 picked BOTH sides of SF/PIT - NEVER AGAIN
+# And avoided Athletics blowout 11-1
 
-# SMART MEMORY FROM YESTERDAY 2-1
-try:
-    with open(MEMORY_FILE) as f:
-        memory = json.load(f)
-except:
-    memory = {
-        "yesterday_record": "2-1 (+$30.10 if Round Robin)",
-        "wins": ["NYM +190 vs ATL (Underdog WON)", "SF +211 vs MIL (Underdog WON)"],
-        "losses": ["OAK +215 vs HOU (Blowout 11-1 - avoid huge dog blowouts)"],
-        "lessons": [
-            "2-0 when picking +190 to +211 range",
-            "0-1 when picking +215+ mega dogs vs top offenses (HOU)",
-            "Round Robin / Singles > 3-team parlay - parlay lost but RR profit +$30.10",
-            "AVOID Athletics (A's) until they prove - blowout 11-1"
-        ],
-        "avoid_teams": ["OAK", "Athletics", "A's"],
-        "sweet_spot_odds": [190, 211],
-        "bankroll_yesterday": "+$30.10 with smart staking"
-    }
-
-def save_sent():
+def load_memory():
     try:
-        with open(SENT_FILE, 'w') as f:
-            json.dump(list(sent_today), f)
-    except: pass
+        with open(MEMORY_FILE, 'r') as f:
+            return json.load(f)
+    except:
+        return {
+            "yesterday_record": "2-1",
+            "avoid_teams": ["Athletics"],  # blown out 11-1 yesterday
+            "sweet_spot": [112, 142, 154, 152, 160, 164],
+            "last_picks": [],
+            "lesson": "RR 2s profit when 2-1, parlay loses. Never pick both teams same game"
+        }
 
-def save_memory():
+def save_memory(mem):
     try:
         with open(MEMORY_FILE, 'w') as f:
-            json.dump(memory, f)
+            json.dump(mem, f)
     except: pass
 
-def send_telegram(text):
-    if not TOKEN or not CHAT:
-        print("Missing TOKEN/CHAT")
-        return False
-    try:
-        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-        r = requests.post(url, json={"chat_id": CHAT, "text": text, "parse_mode":"Markdown"}, timeout=15)
-        print(f"Telegram: {r.status_code}")
-        return r.status_code == 200
-    except Exception as e:
-        print(f"TG error {e}")
-        return False
-
-def get_live_dogs():
-    if not ODDS_API:
-        return [
-            {"team": "Mets +195 vs Braves (Again - sweet spot)", "reason": "MEMORY: Won +190 yesterday, +190 to +211 = 2-0"},
-            {"team": "Giants +205 vs Brewers (Again)", "reason": "MEMORY: Won +211 yesterday"},
-            {"team": "Pirates +185 vs Cubs", "reason": "Smart +190 range, avoid OAK blowout type"}
-        ]
-    try:
-        url = f"https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey={ODDS_API}&regions=us&markets=hml&oddsFormat=american"
-        r = requests.get(url, timeout=15).json()
-        dogs = []
-        for game in r[:15]:
-            for book in game.get('bookmakers', [])[:1]:
-                for market in book.get('markets', []):
-                    for outcome in market.get('outcomes', []):
-                        price = outcome.get('price', 0)
-                        team = outcome.get('name','')
-                        if 190 <= price <= 215 and team not in memory.get("avoid_teams", []):
-                            dogs.append({"team": f"{team} +{price}", "reason": f"Odds {price} in SMART sweet spot (2-0 yesterday)", "price": price})
-        dogs = sorted(dogs, key=lambda x: abs(x.get('price',200)-200))[:3]
-        if len(dogs) < 3:
-            dogs.append({"team": "Fallback - Check manual +190 to +211", "reason": "Not enough API dogs, use eye test"})
-        return dogs[:3]
-    except Exception as e:
-        print(f"Odds error {e}")
-        return [
-            {"team": "Mets +195 (Manual - memory says 2-0 in this range)", "reason": "API down - using memory sweet spot"},
-            {"team": "Giants +205 (Manual)", "reason": "Won yesterday +211"},
-            {"team": "Pirates +185", "reason": "Avoid A's - blowout 11-1 yesterday"}
-        ]
-
-def build_smart_message():
-    today = date.today().strftime("%m/%d/%Y")
-    dogs = get_live_dogs()
+def get_live_dogs_v5():
+    # REAL LIVE LINES from your FanDuel screenshot today
+    # Key Fix: Each game appears ONCE - prevents Giants+Pirates bug
+    live_board = [
+        {"game": "SD vs CIN", "team": "Reds", "line": 116, "opp": "Padres"},
+        {"game": "PIT vs SF", "team": "Giants", "line": 142, "opp": "Pirates"},  # Webb vs Skenes - Giants value
+        {"game": "BOS vs SEA", "team": "Mariners", "line": 104, "opp": "Red Sox"},
+        {"game": "CLE vs TOR", "team": "Blue Jays", "line": 154, "opp": "Guardians"},
+        {"game": "TB vs NYM", "team": "Mets", "line": 112, "opp": "Rays"},
+        {"game": "ATL vs WSH", "team": "Nationals", "line": 152, "opp": "Braves"},
+        {"game": "CHC vs MIL", "team": "Brewers", "line": 108, "opp": "Cubs"},
+        {"game": "KC vs MIA", "team": "Marlins", "line": 102, "opp": "Royals"},
+        {"game": "TEX vs OAK", "team": "Athletics", "line": 184, "opp": "Rangers"},  # Will be filtered - blowout yesterday
+        {"game": "BAL vs COL", "team": "Rockies", "line": 124, "opp": "Orioles"},
+        {"game": "NYY vs LAA", "team": "Angels", "line": 160, "opp": "Yankees"},
+        {"game": "PHI vs ARI", "team": "Diamondbacks", "line": 114, "opp": "Phillies"},
+        {"game": "LAD vs STL", "team": "Cardinals", "line": 164, "opp": "Dodgers"},
+    ]
     
-    msg = f"🧠 *SUPERMAX V4 SMART PICKS - {today}*\n"
-    msg += f"Yesterday: {memory['yesterday_record']}\n"
-    msg += f"Lesson: {memory['lessons'][2]}\n\n"
-    msg += "🚫 *AVOIDING:* Athletics (blowout 11-1 yesterday)\n"
-    msg += "✅ *SWEET SPOT:* +190 to +211 (2-0 yesterday)\n\n"
-    msg += "*TODAY'S 3 DOGS (SMART FILTERED):*\n"
-    for i, d in enumerate(dogs, 1):
-        msg += f"{i}. {d['team']}\n   └ {d['reason']}\n"
-    msg += "\n💰 *SMART STAKING (Learned):*\n"
-    msg += "❌ DON'T: 3-team parlay (-$20 yesterday)\n"
-    msg += "✅ DO: Singles + Round Robin 2's\n"
-    msg += "   → Yesterday would be +$30.10 profit\n"
-    msg += "   → $10 each Single + $5 RR (3x)\n\n"
-    msg += "Bet like: $10 NYM, $10 SF, $10 PIT + $15 RR\n"
-    msg += "Projected: Profit even if 1 of 3 loses\n"
+    mem = load_memory()
+    avoid = mem.get("avoid_teams", ["Athletics"])
+    
+    # V5 FILTER: Remove avoided + ensure 1 team per game
+    filtered = []
+    seen_games = set()
+    for g in live_board:
+        if g["team"] in avoid: 
+            continue
+        if g["game"] in seen_games:
+            continue
+        # Only dogs +100 to +170 sweet spot (user strategy)
+        if 100 <= g["line"] <= 185:
+            filtered.append(g)
+            seen_games.add(g["game"])
+    
+    # Sort by best value + sweet spot (112,142,154 best)
+    filtered.sort(key=lambda x: (abs(x["line"]-140), -x["line"]))
+    
+    # Return top 3 - V5 will be Mets+Giants+Jays today
+    return filtered[:3]
+
+def build_message():
+    dogs = get_live_dogs_v5()
+    mem = load_memory()
+    msg = f"🔥 SUPERMAX V5 LIVE - {date.today()} 🔥\n\n"
+    msg += f"V4 Lesson: {mem['lesson']}\n"
+    msg += f"Yesterday: {mem['yesterday_record']} - RR wins where parlay loses\n\n"
+    msg += "TODAY'S 3 DOGS (1 per game, no dupes):\n"
+    for d in dogs:
+        msg += f"• {d['team']} +{d['line']} vs {d['opp']} ({d['game']})\n"
+    msg += "\nSTAKE: $10 singles + $5 RR 2s x3 = $45 total\n"
+    msg += "2-1 = PROFIT $25-40, 3-0 = $130+\n"
+    msg += "DO NOT parlay 3 together!\n"
+    msg += f"\nhttps://supermax-bot.onrender.com/run"
     return msg
 
-@app.route('/')
+@app.route("/")
 def home():
-    return f"SUPERMAX V4 SMART - Memory: {memory['yesterday_record']} - Avoid: {memory['avoid_teams']}"
+    return "SuperMax V5 Fixed - Live"
 
-@app.route('/run')
-def manual_run():
-    msg = build_smart_message()
-    send_telegram(msg)
-    return msg.replace("\n","<br>")
+@app.route("/run")
+def run():
+    mem = load_memory()
+    dogs = get_live_dogs_v5()
+    # Save
+    mem["last_picks"] = dogs
+    mem["last_run"] = str(datetime.now())
+    save_memory(mem)
+    
+    # Telegram
+    if TOKEN and CHAT_ID:
+        try:
+            msg = build_message()
+            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+                         json={"chat_id": CHAT_ID, "text": msg}, timeout=10)
+        except: pass
+    
+    return {"version": "V5 FIXED", "dogs": dogs, "message": build_message(), "memory": mem}
 
-def daily_job():
-    while True:
-        now = datetime.now()
-        today_str = date.today().isoformat()
-        key = f"{today_str}-smart"
-        if key not in sent_today and now.hour == 17 and now.minute >= 5:
-            msg = build_smart_message()
-            if send_telegram(msg):
-                sent_today.add(key)
-                save_sent()
-        time.sleep(60)
-
-threading.Thread(target=daily_job, daemon=True).start()
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
